@@ -1,5 +1,6 @@
 <script setup>
 import Aside from '@/view/layout/components/Aside.vue'
+import Header from '@/view/layout/components/Header.vue'
 </script>
 
 <template>
@@ -9,7 +10,9 @@ import Aside from '@/view/layout/components/Aside.vue'
         <Aside></Aside>
       </el-aside>
       <el-container>
-        <el-header>Header</el-header>
+        <el-header>
+          <Header></Header>
+        </el-header>
         <el-main>
           <router-view></router-view>
         </el-main>
@@ -21,19 +24,28 @@ import Aside from '@/view/layout/components/Aside.vue'
 <style lang="scss" scoped>
 // 侧边栏蓝色
 :deep(.el-aside) {
-  //   background-color: #409eff;
   height: 100vh;
 }
 // 头部橙色
 :deep(.el-header) {
-  background-color: #ff7d00;
+  background-color: #fff;
   height: 80px;
 }
-// 主体区域绿色
+// 内层容器撑满视口
+:deep(.el-container) {
+  height: 100vh;
+}
+// 主体区域 — flex列布局，填充剩余空间
 :deep(.el-main) {
-  background-color: #67c23a;
-  margin-bottom: 50px;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  > * {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 }
 </style>

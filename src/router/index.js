@@ -21,8 +21,24 @@ const router = createRouter({
           component: () => import('@/view/home/HomeConsole.vue'),
         },
         {
+          path: 'company',
+          component: () => import('@/view/user/company.vue'),
+        },
+        {
+          path: 'role',
+          component: () => import('@/view/user/RoleList.vue'),
+        },
+        {
+          path: 'point',
+          component: () => import('@/view/user/PointList.vue'),
+        },
+        {
           path: 'user',
-          component: () => import('@/view/user/PersonalInfo.vue'),
+          component: () => import('@/view/user/userList.vue'),
+        },
+        {
+          path: 'person',
+          component: () => import('@/view/person/PersonalInfo.vue'),
         },
       ],
     },

@@ -41,7 +41,7 @@ const rules = ref({
   ],
 })
 
-const isLogin = ref(false)
+const isLogin = ref(true)
 
 // 切换登录注册
 const switchLogin = () => {

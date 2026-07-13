@@ -1,6 +1,6 @@
 <script setup>
 import Logo from '@/assets/images/logo.png'
-import { House, User } from '@element-plus/icons-vue'
+import { Document, House, User } from '@element-plus/icons-vue'
 </script>
 
 <template>
@@ -16,7 +16,17 @@ import { House, User } from '@element-plus/icons-vue'
             <span>主控台</span>
           </template>
         </el-menu-item>
-        <el-menu-item index="/backend/user">
+        <el-sub-menu>
+          <template #title>
+            <el-icon><Document /></el-icon>
+            <span>用户中心</span>
+          </template>
+          <el-menu-item index="/backend/role">角色管理</el-menu-item>
+          <el-menu-item index="/backend/user">用户列表</el-menu-item>
+          <el-menu-item index="/backend/point">用户积分</el-menu-item>
+          <el-menu-item index="/backend/company">公司信息</el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/backend/person">
           <template #title>
             <el-icon><User /></el-icon>
             <span>个人中心</span>

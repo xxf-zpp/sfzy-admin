@@ -20,15 +20,27 @@ defineProps({
 </template>
 
 <style lang="scss" scoped>
-:deep(.el-card) {
+.el-card {
   width: 100%;
   flex: 1;
   display: flex;
   flex-direction: column;
+  animation: cardKeyframes 0.2s ease-out forwards;
+}
+
+@keyframes cardKeyframes {
+  from {
+    opacity: 0;
+    transform: translate(50px, -50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 :deep(.el-card__body) {
   flex: 1;
-  overflow: auto; // 内容超出出现滚动条
+  overflow: auto;
 }
 </style>

@@ -12,10 +12,13 @@ defineProps({
     <template #header>
       <div class="card-header">
         <span>{{ title }}</span>
+        <slot name="headerContent"></slot>
       </div>
     </template>
     <slot>内容区域</slot>
-    <template #footer>Footer content</template>
+    <template #footer>
+      <slot name="footerContent"></slot>
+    </template>
   </el-card>
 </template>
 
@@ -26,6 +29,10 @@ defineProps({
   display: flex;
   flex-direction: column;
   animation: cardKeyframes 0.2s ease-out forwards;
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+  }
 }
 
 @keyframes cardKeyframes {
@@ -42,5 +49,9 @@ defineProps({
 :deep(.el-card__body) {
   flex: 1;
   overflow: auto;
+}
+
+:deep(.el-card__footer) {
+  height: 100px;
 }
 </style>

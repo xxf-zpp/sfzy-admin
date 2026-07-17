@@ -3,7 +3,7 @@ import loginBG from '@/assets/images/login-bg.png'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '@/api/user'
+import { login, sendCode } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -67,9 +67,14 @@ const sendSmsCode = async () => {
     ElMessage.warning('请先输入正确的手机号')
     return
   }
-  // TODO: 调用发送验证码接口
-  ElMessage.success('验证码已发送')
-  countdown.value = 60
+  try {
+    await sendCode(formdate.value.mobile)
+    ElMessage.success('验证码已发送')
+    countdown.value = 60
+  } catch (err) {
+    ElMessage.error(err.message || '发送失败')
+    return
+  }
   timer = setInterval(() => {
     countdown.value--
     if (countdown.value <= 0) {

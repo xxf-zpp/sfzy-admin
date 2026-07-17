@@ -15,6 +15,13 @@ export const logout = () => {
 }
 
 /**
+ * 发送短信验证码
+ */
+export const sendCode = (mobile) => {
+  return get('/user/code', { mobile })
+}
+
+/**
  * 获取用户列表
  */
 export const fetchUserList = ({ pageNum, pageSize, username, nickname, mobile } = {}) => {

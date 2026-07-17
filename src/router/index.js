@@ -34,7 +34,7 @@ const router = createRouter({
         },
         {
           path: 'user',
-          component: () => import('@/view/user/userList.vue'),
+          component: () => import('@/view/user/UserList.vue'),
         },
         {
           path: 'person',

@@ -10,8 +10,11 @@ function requestInterceptor(config) {
   if (token) {
     config.headers = {
       ...config.headers,
-      Authorization: `Bearer ${token}`,
+      Authorization: token,
     }
+    console.log('[request] 已附加 token:', token.substring(0, 30) + '...')
+  } else {
+    console.warn('[request] 未找到 token，请求可能被拦截')
   }
   // 默认 JSON 请求头
   if (!config.headers?.['Content-Type']) {

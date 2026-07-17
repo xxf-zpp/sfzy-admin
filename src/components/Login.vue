@@ -1,11 +1,20 @@
 <script setup>
 import loginBG from '@/assets/images/login-bg.png'
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { login } from '@/api/user'
+import { useUserStore } from '@/stores/user'
+
+const router = useRouter()
+const userStore = useUserStore()
 
 const formdate = ref({
   username: '',
   userpwd: '',
   reuserpwd: '',
+  mobile: '',
+  smsCode: '',
 })
 
 // 自定义校验：两次密码一致
@@ -39,9 +48,67 @@ const rules = ref({
     { required: true, message: '请确认密码', trigger: 'blur' },
     { validator: validateSamePwd, trigger: 'blur' },
   ],
+  mobile: [
+    { required: true, message: '手机号不能为空', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
+  ],
+  smsCode: [
+    { required: true, message: '验证码不能为空', trigger: 'blur' },
+    { len: 6, message: '验证码为6位', trigger: 'blur' },
+  ],
 })
 
+// 验证码倒计时
+const countdown = ref(0)
+let timer = null
+const sendSmsCode = async () => {
+  // 先校验手机号
+  if (!/^1[3-9]\d{9}$/.test(formdate.value.mobile)) {
+    ElMessage.warning('请先输入正确的手机号')
+    return
+  }
+  // TODO: 调用发送验证码接口
+  ElMessage.success('验证码已发送')
+  countdown.value = 60
+  timer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      clearInterval(timer)
+      timer = null
+    }
+  }, 1000)
+}
+
+const loginFormRef = ref(null)
 const isLogin = ref(true)
+
+// 登录提交
+const loginSubmit = async () => {
+  // 表单校验
+  try {
+    await loginFormRef.value?.validate()
+  } catch {
+    return
+  }
+
+  try {
+    const res = await login({
+      username: formdate.value.username,
+      userpwd: formdate.value.userpwd,
+    })
+    const token = res.data?.token
+    if (!token) {
+      ElMessage.error('登录返回数据异常，未获取到 token')
+      return
+    }
+    // 将用户信息存入 Pinia store（内部会同步 localStorage）
+    userStore.setUserInfo(res.data)
+    ElMessage.success('登录成功')
+    router.push('/backend')
+  } catch (err) {
+    ElMessage.error(err.message || '登录失败')
+  }
+}
 
 // 切换登录注册
 const switchLogin = () => {
@@ -55,13 +122,16 @@ const switchLogin = () => {
     <el-col :span="11" class="right-login">
       <div class="login-box">
         <!-- 登录区域 -->
-        <el-form v-if="isLogin" :model="formdate" :rules="rules">
+        <el-form
+          v-if="isLogin"
+          ref="loginFormRef"
+          :model="formdate"
+          :rules="rules"
+          @keyup.enter="loginSubmit"
+        >
           <h1>欢迎登录十方智育心理健康管理系统</h1>
           <el-form-item label="账号：" prop="username">
-            <el-input
-              v-model="formdate.username"
-              placeholder="请输入账号"
-            ></el-input>
+            <el-input v-model="formdate.username" placeholder="请输入账号"></el-input>
           </el-form-item>
           <el-form-item label="密码：" prop="userpwd">
             <el-input
@@ -70,20 +140,32 @@ const switchLogin = () => {
               placeholder="请输入密码"
             ></el-input>
           </el-form-item>
-          <el-button type="primary" class="btn">登录</el-button>
+          <el-button type="primary" class="btn" @click="loginSubmit">登录</el-button>
           <div class="bottom-text">
             <el-link type="primary">忘记密码？</el-link>
             <span class="to-register" @click="switchLogin">去注册-&gt;</span>
           </div>
         </el-form>
         <!-- 注册区域 -->
-        <el-form v-else :model="formdate" :rules="rules">
+        <el-form v-else :model="formdate" :rules="rules" label-width="100px">
           <h1>美好起源于注册</h1>
-          <el-form-item label="账号：" prop="username">
-            <el-input
-              v-model="formdate.username"
-              placeholder="请输入账号"
-            ></el-input>
+          <el-form-item label="手机号：" prop="mobile">
+            <el-input v-model="formdate.mobile" placeholder="请输入手机号"></el-input>
+          </el-form-item>
+          <el-form-item label="验证码：" prop="smsCode">
+            <el-input v-model="formdate.smsCode" placeholder="请输入验证码" maxlength="6">
+              <template #append>
+                <el-button
+                  v-if="!countdown"
+                  type="primary"
+                  class="sms-btn"
+                  @click="sendSmsCode"
+                >
+                  发送验证码
+                </el-button>
+                <el-button v-else disabled class="sms-btn"> {{ countdown }}s </el-button>
+              </template>
+            </el-input>
           </el-form-item>
           <el-form-item label="密码：" prop="userpwd">
             <el-input
@@ -92,7 +174,7 @@ const switchLogin = () => {
               placeholder="请输入密码"
             ></el-input>
           </el-form-item>
-          <el-form-item label="密码：" prop="reuserpwd">
+          <el-form-item label="确认密码：" prop="reuserpwd">
             <el-input
               v-model="formdate.reuserpwd"
               type="password"
@@ -148,6 +230,11 @@ const switchLogin = () => {
       width: 100%;
       margin-top: 10px;
       margin: 5px;
+    }
+    .sms-btn {
+      width: 80px;
+      font-size: 12px;
+      padding: 0 4px;
     }
     .bottom-text {
       display: flex;

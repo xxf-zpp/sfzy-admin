@@ -1,6 +1,24 @@
 <script setup>
-const defIcon =
-  'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { logout } from '@/api/user'
+import { useUserStore } from '@/stores/user'
+
+const router = useRouter()
+const userStore = useUserStore()
+const defIcon = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+
+// 退出登录
+const onLogout = async () => {
+  try {
+    await logout()
+  } catch {
+    // 即使接口失败也清除本地状态
+  }
+  userStore.clearUserInfo()
+  ElMessage.success('退出成功')
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -15,11 +33,11 @@ const defIcon =
     <!-- 右侧头像 -->
     <div class="avatar">
       <!-- 头像图标 -->
-      <el-avatar :src="defIcon" :size="60" />
+      <el-avatar :src="userStore.avatar || defIcon" :size="60" />
       <!-- 选择列表 -->
       <el-dropdown>
         <span class="el-dropdown-link">
-          用户昵称
+          {{ userStore.nickname }}（{{ userStore.roleName }}）
           <el-icon class="el-icon--right">
             <arrow-down />
           </el-icon>
@@ -28,7 +46,7 @@ const defIcon =
           <el-dropdown-menu>
             <el-dropdown-item>修改个人信息</el-dropdown-item>
             <el-dropdown-item>个人中心</el-dropdown-item>
-            <el-dropdown-item>退出登录</el-dropdown-item>
+            <el-dropdown-item @click="onLogout">退出登录</el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>

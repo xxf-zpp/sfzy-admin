@@ -1,4 +1,4 @@
-import { del, get, post } from '@/utils/request'
+import request, { get, post, put, upload } from '@/utils/request'
 
 /**
  * 用户登录
@@ -19,6 +19,13 @@ export const logout = () => {
  */
 export const sendCode = (mobile) => {
   return get('/user/code', { mobile })
+}
+
+/**
+ * 用户注册
+ */
+export const register = ({ mobile, code, userpwd, reuserpwd, email }) => {
+  return post('/user/register', { mobile, code, userpwd, reuserpwd, email })
 }
 
 /**
@@ -43,12 +50,24 @@ export const addUser = (data) => {
  * 更新用户
  */
 export const updateUser = (data) => {
-  return post('/user/update', data)
+  return put('/user/update', data)
 }
 
 /**
- * 删除用户
+ * 删除用户（单个/批量）
  */
-export const deleteUser = (id) => {
-  return del('/user', { id })
+export const removeUsers = (ids) => {
+  const body = new URLSearchParams({ ids }).toString()
+  return request('/user/remove', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  })
+}
+
+/**
+ * 上传用户头像
+ */
+export const uploadUserAvatar = (file) => {
+  return upload('/upload', file, 'file')
 }

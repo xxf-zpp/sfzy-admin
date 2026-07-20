@@ -3,7 +3,7 @@ import loginBG from '@/assets/images/login-bg.png'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login, sendCode } from '@/api/user'
+import { login, register, sendCode } from '@/api/user'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -14,6 +14,7 @@ const formdate = ref({
   userpwd: '',
   reuserpwd: '',
   mobile: '',
+  email: '',
   smsCode: '',
 })
 
@@ -52,6 +53,10 @@ const rules = ref({
     { required: true, message: '手机号不能为空', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
   ],
+  email: [
+    { required: true, message: '邮箱不能为空', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' },
+  ],
   smsCode: [
     { required: true, message: '验证码不能为空', trigger: 'blur' },
     { len: 6, message: '验证码为6位', trigger: 'blur' },
@@ -85,6 +90,7 @@ const sendSmsCode = async () => {
 }
 
 const loginFormRef = ref(null)
+const registerFormRef = ref(null)
 const isLogin = ref(true)
 
 // 登录提交
@@ -112,6 +118,31 @@ const loginSubmit = async () => {
     router.push('/backend')
   } catch (err) {
     ElMessage.error(err.message || '登录失败')
+  }
+}
+
+// 注册提交
+const registerSubmit = async () => {
+  try {
+    await registerFormRef.value?.validate()
+  } catch {
+    return
+  }
+
+  try {
+    await register({
+      mobile: formdate.value.mobile,
+      code: formdate.value.smsCode,
+      userpwd: formdate.value.userpwd,
+      reuserpwd: formdate.value.reuserpwd,
+      email: formdate.value.email,
+    })
+    ElMessage.success('注册成功，请登录')
+    // 清空注册表单
+    formdate.value = { username: '', userpwd: '', reuserpwd: '', mobile: '', email: '', smsCode: '' }
+    isLogin.value = true
+  } catch (err) {
+    ElMessage.error(err.message || '注册失败')
   }
 }
 
@@ -152,10 +183,20 @@ const switchLogin = () => {
           </div>
         </el-form>
         <!-- 注册区域 -->
-        <el-form v-else :model="formdate" :rules="rules" label-width="100px">
+        <el-form
+          v-else
+          ref="registerFormRef"
+          :model="formdate"
+          :rules="rules"
+          label-width="100px"
+          @keyup.enter="registerSubmit"
+        >
           <h1>美好起源于注册</h1>
           <el-form-item label="手机号：" prop="mobile">
             <el-input v-model="formdate.mobile" placeholder="请输入手机号"></el-input>
+          </el-form-item>
+          <el-form-item label="邮箱：" prop="email">
+            <el-input v-model="formdate.email" placeholder="请输入邮箱"></el-input>
           </el-form-item>
           <el-form-item label="验证码：" prop="smsCode">
             <el-input v-model="formdate.smsCode" placeholder="请输入验证码" maxlength="6">
@@ -186,7 +227,7 @@ const switchLogin = () => {
               placeholder="请再次输入密码"
             ></el-input>
           </el-form-item>
-          <el-button type="primary" class="btn">注册</el-button>
+          <el-button type="primary" class="btn" @click="registerSubmit">注册</el-button>
           <div class="bottom-text">
             <span class="to-register" @click="switchLogin">&lt;-去登录</span>
           </div>

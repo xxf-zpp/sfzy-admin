@@ -1,8 +1,9 @@
 <script setup>
 import PageContainer from '@/components/PageContainer.vue'
 import { Delete, Edit, Plus, RefreshRight, Search } from '@element-plus/icons-vue'
+import { addUser, fetchUserList, removeUsers, updateUser, uploadUserAvatar } from '@/api/user'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 const formDate = ref({
   username: '',
@@ -14,9 +15,44 @@ const formDate = ref({
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const loading = ref(false)
 
-// 对话框相关
-const dialogVisible = ref(false)
+// 表格数据
+const tableData = ref([])
+
+// 获取用户列表
+const fetchUsers = async () => {
+  loading.value = true
+  try {
+    const res = await fetchUserList({
+      pageNum: currentPage.value,
+      pageSize: pageSize.value,
+      username: formDate.value.username,
+      nickname: formDate.value.nickname,
+      mobile: formDate.value.mobile,
+    })
+    tableData.value = res.data.records || []
+    total.value = res.data.total || 0
+  } catch {
+    tableData.value = []
+    total.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+// 分页变化时重新请求
+watch([currentPage, pageSize], () => {
+  fetchUsers()
+})
+
+onMounted(() => {
+  fetchUsers()
+})
+
+// Drawer 相关
+const drawerVisible = ref(false)
+const drawerTitle = ref('新增用户')
 const userFormRef = ref(null)
 const userForm = ref({
   username: '',
@@ -32,49 +68,6 @@ const userFormRules = {
   email: [{ required: true, message: '请输入邮箱', trigger: 'blur' }],
 }
 
-// 模拟数据
-const allTableData = ref([
-  {
-    id: 1,
-    avatar: 'https://c-ssl.dtstatic.com/uploads/blog/202309/22/YxSQDd7zTqyeoN0.thumb.400_0.jpg',
-    username: 'admin',
-    nickname: '真ikun',
-    mobile: '18488039825',
-    email: 'admin@sfzy.com',
-  },
-  {
-    id: 2,
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    username: 'zhangsan',
-    nickname: '张三',
-    mobile: '13800138001',
-    email: 'zhangsan@sfzy.com',
-  },
-  {
-    id: 3,
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    username: 'lisi',
-    nickname: '李四',
-    mobile: '13800138002',
-    email: 'lisi@sfzy.com',
-  },
-  {
-    id: 4,
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    username: 'wangwu',
-    nickname: '王五',
-    mobile: '13800138003',
-    email: 'wangwu@sfzy.com',
-  },
-])
-
-// 前端分页
-total.value = allTableData.value.length
-const pagedTableData = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return allTableData.value.slice(start, start + pageSize.value)
-})
-
 // 编辑索引
 const editingIndex = ref(-1)
 
@@ -84,6 +77,9 @@ const handleSelectionChange = (rows) => {
   selectedRows.value = rows
 }
 
+// 禁止选中第一个用户（管理员）
+const selectable = (row) => row.id !== 1
+
 // 批量删除
 const onBatchDelete = async () => {
   try {
@@ -92,9 +88,9 @@ const onBatchDelete = async () => {
       '批量删除确认',
       { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
     )
-    const ids = new Set(selectedRows.value.map((row) => row.id))
-    allTableData.value = allTableData.value.filter((item) => !ids.has(item.id))
+    await removeUsers(selectedRows.value.map((r) => r.id).join(','))
     selectedRows.value = []
+    fetchUsers()
     ElMessage.success('删除成功')
   } catch {
     // 取消
@@ -104,12 +100,14 @@ const onBatchDelete = async () => {
 // 搜索
 const onSearch = () => {
   currentPage.value = 1
+  fetchUsers()
 }
 
 // 重置
 const onReset = () => {
   formDate.value = { username: '', nickname: '', mobile: '' }
   currentPage.value = 1
+  fetchUsers()
 }
 
 // page-size 变化
@@ -127,14 +125,48 @@ const handleCurrentChange = (page) => {
 const onAdd = () => {
   editingIndex.value = -1
   userForm.value = { username: '', nickname: '', mobile: '', email: '', avatar: '' }
-  dialogVisible.value = true
+  drawerTitle.value = '新增用户'
+  drawerVisible.value = true
 }
 
 // 编辑
 const onEdit = (row) => {
-  editingIndex.value = allTableData.value.findIndex((item) => item.id === row.id)
+  editingIndex.value = tableData.value.findIndex((item) => item.id === row.id)
   userForm.value = { ...row }
-  dialogVisible.value = true
+  drawerTitle.value = '编辑用户'
+  drawerVisible.value = true
+}
+
+// Drawer 中删除
+const onDrawerDelete = async () => {
+  try {
+    await ElMessageBox.confirm(`确定要删除用户【${userForm.value.nickname}】吗？`, '删除确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await removeUsers(String(userForm.value.id))
+    drawerVisible.value = false
+    fetchUsers()
+    ElMessage.success('删除成功')
+  } catch {
+    // 取消
+  }
+}
+
+// 头像上传
+const avatarUploading = ref(false)
+const handleAvatarUpload = async (options) => {
+  avatarUploading.value = true
+  try {
+    const res = await uploadUserAvatar(options.file)
+    userForm.value.avatar = res.data || res.msg
+    ElMessage.success('头像上传成功')
+  } catch (err) {
+    ElMessage.error(err.message || '上传失败')
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 // 提交
@@ -146,17 +178,13 @@ const onSubmit = async () => {
   submitLoading.value = true
   try {
     if (editingIndex.value >= 0) {
-      allTableData.value[editingIndex.value] = {
-        ...allTableData.value[editingIndex.value],
-        ...userForm.value,
-      }
-      ElMessage.success('修改成功')
+      await updateUser(userForm.value)
     } else {
-      userForm.value.id = Date.now()
-      allTableData.value.unshift({ ...userForm.value })
-      ElMessage.success('添加成功')
+      await addUser(userForm.value)
     }
-    dialogVisible.value = false
+    drawerVisible.value = false
+    fetchUsers()
+    ElMessage.success(editingIndex.value >= 0 ? '修改成功' : '添加成功')
   } finally {
     submitLoading.value = false
   }
@@ -170,8 +198,8 @@ const onDelete = async (row) => {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    const idx = allTableData.value.findIndex((item) => item.id === row.id)
-    if (idx >= 0) allTableData.value.splice(idx, 1)
+    await removeUsers(String(row.id))
+    fetchUsers()
     ElMessage.success('删除成功')
   } catch {
     // 取消
@@ -223,12 +251,13 @@ const onDelete = async (row) => {
 
       <!-- 表格区域 -->
       <el-table
-        :data="pagedTableData"
+        v-loading="loading"
+        :data="tableData"
         border
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" align="center" width="50" />
+        <el-table-column type="selection" align="center" width="50" :selectable="selectable" />
         <el-table-column type="index" label="序号" align="center" width="60" />
         <el-table-column
           prop="avatar"
@@ -244,7 +273,8 @@ const onDelete = async (row) => {
         <el-table-column prop="username" label="用户名" width="250" />
         <el-table-column prop="nickname" label="昵称" width="250" />
         <el-table-column prop="mobile" label="手机号" width="250" />
-        <el-table-column prop="email" label="邮箱" min-width="200" />
+        <el-table-column prop="email" label="邮箱" width="200" />
+        <el-table-column prop="roleName" label="角色" width="216" />
         <el-table-column label="操作" width="200" align="center">
           <template #default="scope">
             <el-button
@@ -283,37 +313,60 @@ const onDelete = async (row) => {
     </template>
   </page-container>
 
-  <!-- 自定义弹窗 -->
-  <div v-if="dialogVisible" class="custom-overlay" @click.self="dialogVisible = false">
-    <div class="custom-dialog">
-      <div class="custom-dialog__header">
-        <span>{{ editingIndex >= 0 ? '编辑用户' : '新增用户' }}</span>
-      </div>
-      <div class="custom-dialog__body">
-        <el-form ref="userFormRef" :model="userForm" :rules="userFormRules" label-width="80px">
-          <el-form-item label="用户名" prop="username">
-            <el-input v-model="userForm.username" placeholder="请输入用户名" />
-          </el-form-item>
-          <el-form-item label="昵称" prop="nickname">
-            <el-input v-model="userForm.nickname" placeholder="请输入昵称" />
-          </el-form-item>
-          <el-form-item label="手机号" prop="mobile">
-            <el-input v-model="userForm.mobile" placeholder="请输入手机号" />
-          </el-form-item>
-          <el-form-item label="邮箱" prop="email">
-            <el-input v-model="userForm.email" placeholder="请输入邮箱" />
-          </el-form-item>
-          <el-form-item label="头像" prop="avatar">
-            <el-input v-model="userForm.avatar" placeholder="请输入头像URL" />
-          </el-form-item>
-        </el-form>
-      </div>
-      <div class="custom-dialog__footer">
-        <el-button :disabled="submitLoading" @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="onSubmit">确定</el-button>
-      </div>
-    </div>
-  </div>
+  <!-- Drawer 抽屉 -->
+  <el-drawer
+    v-model="drawerVisible"
+    :title="drawerTitle"
+    direction="rtl"
+    size="40%"
+    @close="userFormRef?.resetFields()"
+  >
+    <el-form ref="userFormRef" :model="userForm" :rules="userFormRules" label-width="80px">
+      <el-form-item label="用户名" prop="username">
+        <el-input v-model="userForm.username" placeholder="请输入用户名" />
+      </el-form-item>
+      <el-form-item label="昵称" prop="nickname">
+        <el-input v-model="userForm.nickname" placeholder="请输入昵称" />
+      </el-form-item>
+      <el-form-item label="头像" prop="avatar">
+        <el-upload
+          class="avatar-uploader"
+          :show-file-list="false"
+          :http-request="handleAvatarUpload"
+          accept="image/*"
+        >
+          <div v-loading="avatarUploading" class="avatar-uploader__inner">
+            <img v-if="userForm.avatar" :src="userForm.avatar" class="avatar-preview" />
+            <el-icon v-else class="avatar-uploader-icon"><plus /></el-icon>
+          </div>
+        </el-upload>
+      </el-form-item>
+      <el-form-item label="手机号" prop="mobile">
+        <el-input v-model="userForm.mobile" placeholder="请输入手机号" />
+      </el-form-item>
+      <el-form-item label="邮箱" prop="email">
+        <el-input v-model="userForm.email" placeholder="请输入邮箱" />
+      </el-form-item>
+      <el-form-item class="drawer-btns">
+        <div class="drawer-btns__wrap">
+          <div>
+            <el-button
+              v-if="editingIndex >= 0"
+              type="danger"
+              :disabled="submitLoading"
+              @click="onDrawerDelete"
+            >
+              删除
+            </el-button>
+          </div>
+          <div class="drawer-btns__right">
+            <el-button :disabled="submitLoading" @click="drawerVisible = false">取消</el-button>
+            <el-button type="primary" :loading="submitLoading" @click="onSubmit">确定</el-button>
+          </div>
+        </div>
+      </el-form-item>
+    </el-form>
+  </el-drawer>
 </template>
 
 <style lang="scss" scoped>
@@ -333,42 +386,55 @@ const onDelete = async (row) => {
   justify-content: flex-end;
 }
 
+/* 头像上传组件 */
+.avatar-uploader {
+  :deep(.el-upload) {
+    width: 170px;
+    height: 170px;
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    &:hover {
+      border-color: #409eff;
+    }
+  }
+  .avatar-preview {
+    width: 170px;
+    height: 170px;
+    object-fit: cover;
+    border-radius: 6px;
+  }
+  &__inner {
+    width: 170px;
+    height: 170px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .avatar-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+  }
+}
+
+.drawer-btns {
+  margin-top: 50px;
+  &__wrap {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+  }
+  &__right {
+    display: flex;
+    gap: 12px;
+  }
+}
+
 /* 头像列压缩内边距，给头像更多空间 */
 :deep(td.avatar-col) {
   padding: 4px 0;
-}
-
-/* 自定义弹窗 */
-.custom-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.custom-dialog {
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  width: 500px;
-  max-height: 80vh;
-  overflow: auto;
-}
-.custom-dialog__header {
-  padding: 16px 20px;
-  font-size: 16px;
-  font-weight: 600;
-  color: #333;
-  border-bottom: 1px solid #eee;
-}
-.custom-dialog__body {
-  padding: 20px;
-}
-.custom-dialog__footer {
-  padding: 12px 20px;
-  text-align: right;
-  border-top: 1px solid #eee;
 }
 </style>

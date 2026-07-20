@@ -27,13 +27,21 @@ function requestInterceptor(config) {
 }
 
 /**
+ * 清除登录态并跳转登录页
+ */
+function toLogin() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('userInfo')
+  window.location.replace('/login')
+}
+
+/**
  * 响应拦截器（处理响应数据）
  */
 async function responseInterceptor(response) {
-  // 登录过期（常见状态码 401）
+  // ① HTTP 401 → 登录过期
   if (response.status === 401) {
-    localStorage.removeItem('token')
-    window.location.href = '/login'
+    toLogin()
     return Promise.reject(new Error('登录已过期'))
   }
 
@@ -43,7 +51,14 @@ async function responseInterceptor(response) {
   }
 
   const data = await response.json()
-  // 如果后端统一返回 { code, data, msg/message } 格式
+
+  // ② 业务 code 401/403 → token 过期或无权限
+  if (data.code === 401 || data.code === 403) {
+    toLogin()
+    return Promise.reject(new Error(data.msg || data.message || '登录已过期'))
+  }
+
+  // ③ 其他业务错误
   if (data.code !== undefined && data.code !== 0 && data.code !== 200) {
     throw new Error(data.msg || data.message || '请求失败')
   }
@@ -116,6 +131,52 @@ export function del(url, params, options = {}) {
     if (qs) queryStr = `?${qs}`
   }
   return request(`${url}${queryStr}`, { ...options, method: 'DELETE' })
+}
+
+/**
+ * 上传文件（FormData）
+ */
+export function upload(url, file, fieldName = 'file') {
+  const formData = new FormData()
+  formData.append(fieldName, file)
+
+  const token = localStorage.getItem('token')
+  const headers = {}
+  if (token) {
+    headers.Authorization = token
+  }
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT)
+
+  return fetch(`${BASE_URL}${url}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      clearTimeout(timeoutId)
+      if (response.status === 401) {
+        localStorage.removeItem('token')
+        localStorage.removeItem('userInfo')
+        window.location.replace('/login')
+        throw new Error('登录已过期')
+      }
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.message || `上传失败 (${response.status})`)
+      }
+      const data = await response.json()
+      if (data.code !== undefined && data.code !== 0 && data.code !== 200) {
+        throw new Error(data.msg || data.message || '上传失败')
+      }
+      return data
+    })
+    .catch((error) => {
+      clearTimeout(timeoutId)
+      throw error
+    })
 }
 
 export default request
